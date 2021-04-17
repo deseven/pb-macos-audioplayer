@@ -8,7 +8,7 @@ DeclareModule audioplayer
   Enumeration player
     #None
     #PBSoundLibrary
-    #AVAuidioPlayer
+    #AVAudioPlayer
   EndEnumeration
   
   Declare.b isSupportedFile(path.s)
@@ -50,7 +50,7 @@ Module audioplayer
         Case #PBSoundLibrary
           StopSound(audio\playerID)
           FreeSound(audio\playerID)
-        Case #AVAuidioPlayer
+        Case #AVAudioPlayer
           CocoaMessage(0,audio\playerID,"stop")
           CocoaMessage(0,audio\playerID,"dealloc")
       EndSelect
@@ -104,7 +104,7 @@ Module audioplayer
             Else
               audio\isPaused = #True
             EndIf
-            audio\player = #AVAuidioPlayer
+            audio\player = #AVAudioPlayer
             audio\initialized = #True
           EndIf
       EndSelect
@@ -126,7 +126,7 @@ Module audioplayer
             Case #PB_Sound_Paused
               ResumeSound(audio\playerID)
           EndSelect
-        Case #AVAuidioPlayer
+        Case #AVAudioPlayer
           CocoaMessage(0,audio\playerID,"play")
       EndSelect
       ProcedureReturn #True
@@ -142,7 +142,7 @@ Module audioplayer
             Case #PB_Sound_Playing
               PauseSound(audio\playerID)
           EndSelect
-        Case #AVAuidioPlayer
+        Case #AVAudioPlayer
           CocoaMessage(0,audio\playerID,"pause")
       EndSelect
       ProcedureReturn #True
@@ -170,7 +170,7 @@ Module audioplayer
       Select audio\player
         Case #PBSoundLibrary
           ProcedureReturn GetSoundPosition(audio\playerID,#PB_Sound_Millisecond)
-        Case #AVAuidioPlayer
+        Case #AVAudioPlayer
           Protected position.d
           CocoaMessage(@position,audio\playerID,"currentTime")
           ProcedureReturn(position * 1000)
