@@ -1,15 +1,18 @@
 # pb-macos-audioplayer
-A simple wrapper built around internal sound library and macOS AVAudioPlayer for [PureBasic](http://purebasic.com). Totally asynchronous, but not threadsafe. Should support mp3, m4a, aac, wav, aiff, flac and ogg.  
+A simple wrapper built around internal sound library and macOS AVAudioPlayer for [PureBasic](http://purebasic.com). Totally asynchronous, but NOT threadsafe. Should support mp3, m4a, aac, wav, aiff, flac and ogg.  
 
 ## usage
 ```
 IncludeFile "audioplayer.pbi"
 If audioplayer::load("file.mp3")
-  Debug audioplayer::getDuration()
+  Debug "Playing file " + audioplayer::getPath()
+  Debug "File duration: " + Str(audioplayer::getDuration()/1000) + " sec"
   audioplayer::play()
-  Delay(5000)
+  Delay(5100)
   audioplayer::pause()
-  Debug audioplayer::getCurrentTime()
+  Debug "Played: " +  Str(audioplayer::getCurrentTime()/1000) + " sec"
   audioplayer::stop()
+  audioplayer::free()
 EndIf
 ```
+For advanced usage check out the included `example.pb`.
