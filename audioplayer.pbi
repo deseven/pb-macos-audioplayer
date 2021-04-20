@@ -11,22 +11,22 @@ DeclareModule audioplayer
     #AVAudioPlayer
   EndEnumeration
   
-  Declare.b isSupportedFile(path.s)
-  Declare.b load(path.s,startPlaying = #False)
-  Declare.b play()
-  Declare.b pause()
-  Declare.b toggle()
-  Declare.b stop()
-  Declare.b free()
-  Declare.i getCurrentTime()
-  Declare.i getDuration()
-  Declare.b getPlayer()
-  Declare.i getPlayerID()
-  Declare.b isPaused()
-  Declare.b isStarted()
+  Declare isSupportedFile(path.s)
+  Declare load(path.s,startPlaying = #False)
+  Declare play()
+  Declare pause()
+  Declare toggle()
+  Declare stop()
+  Declare free()
+  Declare getCurrentTime()
+  Declare getDuration()
+  Declare getPlayer()
+  Declare getPlayerID()
+  Declare isPaused()
+  Declare isStarted()
   Declare.s getPath()
-  Declare.b setFinishEvent(event.i)
-  Declare.b checkFinishRoutine()
+  Declare setFinishEvent(event.i)
+  Declare checkFinishRoutine()
   
 EndDeclareModule
 
@@ -56,7 +56,7 @@ Module audioplayer
   
   Global audio.audio
   
-  Procedure.b cleanUp()
+  Procedure cleanUp()
     If audio\playerID
       Select audio\player
         Case #PBSoundLibrary
@@ -70,7 +70,7 @@ Module audioplayer
     ClearStructure(@audio,audio)
   EndProcedure
   
-  Procedure.b isSupportedFile(path.s)
+  Procedure isSupportedFile(path.s)
     path = LCase(GetExtensionPart(path))
     If path = "mp3" Or
        path = "m4a" Or
@@ -87,7 +87,7 @@ Module audioplayer
     EndIf
   EndProcedure
   
-  Procedure.b load(path.s,startPlaying = #False)
+  Procedure load(path.s,startPlaying = #False)
     If FileSize(path) And isSupportedFile(path)
       cleanUp()
       Select LCase(GetExtensionPart(path))
@@ -126,7 +126,7 @@ Module audioplayer
     EndIf
   EndProcedure
   
-  Procedure.b play()
+  Procedure play()
     If audio\initialized And (audio\isPaused Or Not audio\isStarted)
       audio\isPaused = #False
       audio\isStarted = #True
@@ -145,7 +145,7 @@ Module audioplayer
     EndIf
   EndProcedure
   
-  Procedure.b pause()
+  Procedure pause()
     If audio\initialized And Not audio\isPaused
       audio\isPaused = #True
       Select audio\player
@@ -161,7 +161,7 @@ Module audioplayer
     EndIf
   EndProcedure
   
-  Procedure.b toggle()
+  Procedure toggle()
     If audio\initialized
       If audio\isPaused Or Not audio\isStarted
         play()
@@ -172,7 +172,7 @@ Module audioplayer
     EndIf
   EndProcedure
   
-  Procedure.b stop()
+  Procedure stop()
     If audio\initialized
       Select audio\player
         Case #PBSoundLibrary
@@ -188,12 +188,12 @@ Module audioplayer
     EndIf
   EndProcedure
   
-  Procedure.b free()
+  Procedure free()
     cleanUp()
     ProcedureReturn #True
   EndProcedure
   
-  Procedure.i getCurrentTime()
+  Procedure getCurrentTime()
     If audio\initialized
       Select audio\player
         Case #PBSoundLibrary
@@ -206,23 +206,23 @@ Module audioplayer
     EndIf
   EndProcedure
   
-  Procedure.i getDuration()
+  Procedure getDuration()
     ProcedureReturn audio\duration
   EndProcedure
   
-  Procedure.b getPlayer()
+  Procedure getPlayer()
     ProcedureReturn audio\player
   EndProcedure
   
-  Procedure.i getPlayerID()
+  Procedure getPlayerID()
     ProcedureReturn audio\playerID
   EndProcedure
   
-  Procedure.b isPaused()
+  Procedure isPaused()
     ProcedureReturn audio\isPaused
   EndProcedure
   
-  Procedure.b isStarted()
+  Procedure isStarted()
     ProcedureReturn audio\isStarted
   EndProcedure
   
@@ -230,7 +230,7 @@ Module audioplayer
     ProcedureReturn audio\path
   EndProcedure
   
-  Procedure.b setFinishEvent(event.i)
+  Procedure setFinishEvent(event.i)
     audio\finishEvent = event
     If audio\player = #AVAudioPlayer
       CocoaMessage(0,audio\playerID,"setDelegate:",AVPdelegate)
@@ -238,7 +238,7 @@ Module audioplayer
     ProcedureReturn #True
   EndProcedure
   
-  Procedure.b checkFinishRoutine()
+  Procedure checkFinishRoutine()
     If audio\finishEvent And audio\isStarted And audio\player = #PBSoundLibrary And SoundStatus(audio\playerID) = #PB_Sound_Stopped
       audio\isStarted = #False
       PostEvent(audio\finishEvent)
