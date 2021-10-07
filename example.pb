@@ -14,10 +14,13 @@ HideGadget(1,#True) : HideGadget(2,#True)
 TextGadget(3,10,5,380,60,"File not loaded")
 TextGadget(4,10,65,380,20,"Playback stopped")
 
+audioplayer::setffmpegPath("/usr/local/bin/ffmpeg") ; if you have ffmpeg then you can play more formats (flac, ogg, etc)
+audioplayer::addFFmpegFormat("flac")
+audioplayer::addFFmpegFormat("oga")
+audioplayer::addFFmpegFormat("ogg")
 
 Repeat
-  Define ev = WaitWindowEvent(100)
-  audioplayer::checkFinishRoutine() ; needs to be called from time to time if you want the finish event
+  Define ev = WaitWindowEvent(900)
   If audioplayer::isStarted() And Not audioplayer::isPaused()
     ; can be optimised a lot in terms of resource usage
     ; for example don't update the text if it's not changed
@@ -33,7 +36,9 @@ Repeat
             SetGadgetText(3,audioplayer::getPath())
             TextGadget(4,10,65,380,20,"Playback stopped")
             SetGadgetText(1,"Play")
-            audioplayer::setFinishEvent(#playingFinished) ; even that will be fired when the track is played to the end
+            audioplayer::setFinishEvent(#playingFinished) ; event that will be fired when the track is played to the end
+          Else
+            MessageRequester("","File format is not supported",#PB_MessageRequester_Error)
           EndIf
         Case 1 ; play/pause
           audioplayer::toggle()
@@ -54,3 +59,5 @@ Repeat
       SetGadgetText(3,"File not loaded")
   EndSelect
 Until ev = #PB_Event_CloseWindow
+
+audioplayer::free() ; don't forget to do the cleanup
