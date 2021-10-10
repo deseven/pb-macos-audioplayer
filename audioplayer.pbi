@@ -1,4 +1,4 @@
-﻿; pb-macos-audioplayer rev.3
+﻿; pb-macos-audioplayer rev.4
 ; written by deseven
 ;
 ; https://github.com/deseven/pb-macos-audioplayer
@@ -14,7 +14,8 @@ DeclareModule audioplayer
   Declare toggle()
   Declare stop()
   Declare free()
-  Declare getCurrentTime()
+  Declare.d getCurrentTime()
+  Declare.d setCurrentTime(time.d)
   Declare getDuration()
   Declare getPlayerID()
   Declare isPaused()
@@ -178,7 +179,7 @@ Module audioplayer
       Protected duration.d
       CocoaMessage(@duration,audio\playerID,"prepareToPlay")
       CocoaMessage(@duration,audio\playerID,"duration")
-      audio\duration = duration * 1000
+      audio\duration = duration
       If startPlaying
         CocoaMessage(0,audio\playerID,"play")
         audio\isStarted = #True
@@ -235,11 +236,18 @@ Module audioplayer
     ProcedureReturn #True
   EndProcedure
   
-  Procedure getCurrentTime()
+  Procedure.d getCurrentTime()
     If audio\initialized
       Protected position.d
       CocoaMessage(@position,audio\playerID,"currentTime")
-      ProcedureReturn(position * 1000)
+      ProcedureReturn(position)
+    EndIf
+  EndProcedure
+  
+  Procedure.d setCurrentTime(time.d)
+    If audio\initialized
+      CocoaMessage(0,audio\playerID,"setCurrentTime:@",@time)
+      ProcedureReturn getCurrentTime()
     EndIf
   EndProcedure
   
