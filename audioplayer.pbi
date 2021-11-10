@@ -1,4 +1,4 @@
-﻿; pb-macos-audioplayer rev.4
+﻿; pb-macos-audioplayer rev.5
 ; written by deseven
 ;
 ; https://github.com/deseven/pb-macos-audioplayer
@@ -7,22 +7,23 @@ DeclareModule audioplayer
   
   Declare addFFmpegFormat(ext.s)
   Declare setFFmpegPath(path.s)
+  Declare setFFmpegTempDirPath(path.s)
   Declare isSupportedFile(path.s)
-  Declare load(path.s,startPlaying = #False)
-  Declare play()
-  Declare pause()
-  Declare toggle()
-  Declare stop()
-  Declare free()
-  Declare.d getCurrentTime()
-  Declare.d setCurrentTime(time.d)
-  Declare getDuration()
-  Declare getPlayerID()
-  Declare isPaused()
-  Declare isStarted()
-  Declare.s getPath()
-  Declare.s getTempPath()
-  Declare setFinishEvent(event.i)
+  Declare load(id.l,path.s)
+  Declare play(id.l)
+  Declare pause(id.l)
+  Declare toggle(id.l)
+  Declare stop(id.l)
+  Declare free(id.l = #PB_All)
+  Declare.d getCurrentTime(id.l)
+  Declare.d setCurrentTime(id.l,time.d)
+  Declare getDuration(id.l)
+  Declare getPlayerID(id.l)
+  Declare isPaused(id.l)
+  Declare isStarted(id.l)
+  Declare.s getPath(id.l)
+  Declare.s getTempPath(id.l)
+  Declare setFinishEvent(id.l,event.i)
   
 EndDeclareModule
 
@@ -31,12 +32,13 @@ Module audioplayer
   UseMD5Fingerprint()
   
   Structure audio
+    ID.l
+    playerID.i
     initialized.b
     isPaused.b
     isStarted.b
     path.s
     tempPath.s
-    playerID.i
     duration.i
     finishEvent.i
   EndStructure
@@ -53,15 +55,16 @@ Module audioplayer
 
   ImportC "-framework AVKit" : EndImport
   
-  DeclareC AVAudioPlayerDidFinishPlaying()
+  DeclareC AVAudioPlayerDidFinishPlaying(id.i,v.i,playerID.i)
   Define AVPdelegateClass = objc_allocateClassPair_(objc_getClass_("NSObject"),"myDelegateClass",0)
   class_addMethod_(AVPdelegateClass,sel_registerName_("audioPlayerDidFinishPlaying:successfully:"),@AVAudioPlayerDidFinishPlaying(),"v@:@@")
   objc_registerClassPair_(AVPdelegateClass)
   Global AVPdelegate = class_createInstance_(AVPdelegateClass,0)
   
-  Global audio.audio
+  Global NewList players.audio()
   
   Global FFmpegPath.s
+  Global FFmpegTempDirPath.s
   
   Global NewList formats.format()
   AddElement(formats()) : formats()\ext = "mp3"  : formats()\type = #formatNative
@@ -80,6 +83,13 @@ Module audioplayer
     EndIf
   EndProcedure
   
+  Procedure setFFmpegTempDirPath(path.s)
+    If FileSize(path) = -2
+      FFmpegTempDirPath = path
+      ProcedureReturn #True
+    EndIf
+  EndProcedure
+  
   Procedure addFFmpegFormat(ext.s)
     ext = LCase(ext)
     ForEach formats()
@@ -91,19 +101,6 @@ Module audioplayer
     Next
     AddElement(formats()) : formats()\ext = ext : formats()\type = #formatFFmpeg
     ProcedureReturn #True
-  EndProcedure
-  
-  Procedure cleanUp()
-    If audio\playerID
-      CocoaMessage(0,audio\playerID,"stop")
-      CocoaMessage(0,audio\playerID,"dealloc")
-    EndIf
-    If audio\tempPath
-      If FileSize(audio\tempPath) > -1
-        DeleteFile(audio\tempPath,#PB_FileSystem_Force)
-      EndIf
-    EndIf
-    ClearStructure(@audio,audio)
   EndProcedure
   
   Procedure isSupportedFile(path.s)
@@ -123,49 +120,83 @@ Module audioplayer
     Next
   EndProcedure
   
-  Procedure load(path.s,startPlaying = #False)
+  Procedure loadNative(path.s)
+    ProcedureReturn CocoaMessage(0,CocoaMessage(0,0,"AVAudioPlayer alloc"),
+                                 "initWithContentsOfURL:",CocoaMessage(0,0,"NSURL fileURLWithPath:$",@path),
+                                 "error:",#Null)
+  EndProcedure
+  
+  Procedure loadFFmpeg(path.s,tempPath.s)
     Protected FFmpegFailed.b
-    Protected tempPath.s
     Protected FFmpeg.i
-    If FileSize(path) And isSupportedFile(path)
-      cleanUp()
-      audio\path = path
+    ffmpeg = RunProgram(FFmpegPath,~"-i \"" + path + ~"\" -y -map_metadata -1 -v 0 \"" + tempPath + ~"\"","",#PB_Program_Open)
+    If IsProgram(FFmpeg)
+      WaitProgram(FFmpeg,5000)
+      If ProgramRunning(FFmpeg)
+        KillProgram(FFmpeg)
+        FFmpegFailed = #True
+      EndIf
+      If FileSize(tempPath) <= 0
+        FFmpegFailed = #True
+      EndIf
+      If ProgramExitCode(ffmpeg) <> 0
+        FFmpegFailed = #True
+      EndIf
+      CloseProgram(ffmpeg)
+    Else
+      FFmpegFailed = #True
+    EndIf
+    
+    If FFmpegFailed
+      If FileSize(tempPath) >= 0
+        DeleteFile(tempPath,#PB_FileSystem_Force)
+      EndIf
+      ProcedureReturn #False
+    EndIf
+    
+    ProcedureReturn loadNative(tempPath)
+  EndProcedure
+  
+  Procedure load(id.l,path.s)
+    Protected tempPath.s
+    Protected duration.d
+    Protected anyID.l
+    
+    If id = #PB_Any
+      While Not anyID
+        anyID = Random(2147483647,1)
+        ForEach players()
+          If players()\id = anyID
+            anyID = 0
+            Break
+          EndIf
+        Next
+      Wend
+      id = anyID
+    EndIf
+    
+    If id >= 0 And FileSize(path) And isSupportedFile(path)
+      ForEach players()
+        If players()\ID = id
+          free(id)
+        EndIf
+      Next
+      AddElement(players())
+      players()\ID = id
+      players()\path = path
       Protected ext.s = LCase(GetExtensionPart(path))
       ForEach formats()
         If formats()\ext = ext
           Select formats()\type
             Case #formatNative
-              audio\playerID = CocoaMessage(0,CocoaMessage(0,0,"AVAudioPlayer alloc"),
-                                            "initWithContentsOfURL:",CocoaMessage(0,0,"NSURL fileURLWithPath:$",@path),
-                                            "error:",#Null)
+              players()\playerID = loadNative(path)
             Case #formatFFmpeg
-              tempPath = GetTemporaryDirectory() + StringFingerprint(Str(Date()),#PB_Cipher_MD5) + ".wav"
-              ffmpeg = RunProgram(ffmpegPath,~"-i \"" + path + ~"\" -y -map_metadata -1 -v 0 \"" + tempPath + ~"\"","",#PB_Program_Open)
-              If IsProgram(ffmpeg)
-                WaitProgram(ffmpeg,5000)
-                If ProgramRunning(ffmpeg)
-                  KillProgram(ffmpeg)
-                  FFmpegFailed = #True
-                EndIf
-                If FileSize(tempPath) <= 0
-                  FFmpegFailed = #True
-                EndIf
-                If ProgramExitCode(ffmpeg) <> 0
-                  FFmpegFailed = #True
-                EndIf
-                CloseProgram(ffmpeg)
+              If FFmpegTempDirPath
+                tempPath = FFmpegTempDirPath + "/" + StringFingerprint(Str(Date()) + path,#PB_Cipher_MD5) + ".wav"
               Else
-                FFmpegFailed = #True
+                tempPath = GetTemporaryDirectory() + StringFingerprint(Str(Date()) + path,#PB_Cipher_MD5) + ".wav"
               EndIf
-              
-              If FFmpegFailed
-                cleanUp()
-                ProcedureReturn #False
-              EndIf
-              
-              audio\playerID = CocoaMessage(0,CocoaMessage(0,0,"AVAudioPlayer alloc"),
-                                            "initWithContentsOfURL:",CocoaMessage(0,0,"NSURL fileURLWithPath:$",@tempPath),
-                                            "error:",#Null)
+              players()\playerID = loadFFmpeg(path,tempPath)
           EndSelect
           Break
         EndIf
@@ -174,118 +205,178 @@ Module audioplayer
       ProcedureReturn #False
     EndIf
     
-    If audio\playerID
-      audio\tempPath = tempPath
-      Protected duration.d
-      CocoaMessage(@duration,audio\playerID,"prepareToPlay")
-      CocoaMessage(@duration,audio\playerID,"duration")
-      audio\duration = duration
-      If startPlaying
-        CocoaMessage(0,audio\playerID,"play")
-        audio\isStarted = #True
-      EndIf
-      audio\initialized = #True
+    If players()\playerID
+      players()\tempPath = tempPath
+      CocoaMessage(0,players()\playerID,"prepareToPlay")
+      CocoaMessage(@duration,players()\playerID,"duration")
+      players()\duration = duration
+      players()\initialized = #True
     EndIf
     
-    If audio\initialized
-      ProcedureReturn #True
-    EndIf
-  EndProcedure
-  
-  Procedure play()
-    If audio\initialized And (audio\isPaused Or Not audio\isStarted)
-      audio\isPaused = #False
-      audio\isStarted = #True
-      CocoaMessage(0,audio\playerID,"play")
-      ProcedureReturn #True
-    EndIf
-  EndProcedure
-  
-  Procedure pause()
-    If audio\initialized And Not audio\isPaused
-      audio\isPaused = #True
-      CocoaMessage(0,audio\playerID,"pause")
-      ProcedureReturn #True
-    EndIf
-  EndProcedure
-  
-  Procedure toggle()
-    If audio\initialized
-      If audio\isPaused Or Not audio\isStarted
-        play()
+    If players()\initialized
+      If anyID
+        ProcedureReturn id
       Else
-        pause()
+        ProcedureReturn #True
       EndIf
-      ProcedureReturn #True
+    Else
+      free(id)
     EndIf
   EndProcedure
   
-  Procedure stop()
-    If audio\initialized
-      CocoaMessage(0,audio\playerID,"pause")
-      Define time.d = 0.0
-      CocoaMessage(@time,audio\playerID,"setCurrentTime:")
-      audio\isStarted = #False
-      audio\isPaused = #False
-      ProcedureReturn #True
-    EndIf
+  Procedure play(id.l)
+    ForEach players()
+      If players()\ID = id And players()\initialized And (players()\isPaused Or Not players()\isStarted)
+        players()\isPaused = #False
+        players()\isStarted = #True
+        CocoaMessage(0,players()\playerID,"play")
+        ProcedureReturn #True
+      EndIf
+    Next
   EndProcedure
   
-  Procedure free()
-    cleanUp()
-    ProcedureReturn #True
+  Procedure pause(id.l)
+    ForEach players()
+      If players()\ID = id And players()\initialized And (Not players()\isPaused)
+        players()\isPaused = #True
+        CocoaMessage(0,players()\playerID,"pause")
+        ProcedureReturn #True
+      EndIf
+    Next
   EndProcedure
   
-  Procedure.d getCurrentTime()
-    If audio\initialized
-      Protected position.d
-      CocoaMessage(@position,audio\playerID,"currentTime")
-      ProcedureReturn(position)
-    EndIf
+  Procedure toggle(id.l)
+    ForEach players()
+      If players()\ID = id And players()\initialized
+        If players()\isPaused Or (Not players()\isStarted)
+          play(id)
+        Else
+          pause(id)
+        EndIf
+        ProcedureReturn #True
+      EndIf
+    Next
   EndProcedure
   
-  Procedure.d setCurrentTime(time.d)
-    If audio\initialized
-      CocoaMessage(0,audio\playerID,"setCurrentTime:@",@time)
-      ProcedureReturn getCurrentTime()
-    EndIf
+  Procedure stop(id.l)
+    ForEach players()
+      If players()\ID = id And players()\initialized
+        CocoaMessage(0,players()\playerID,"pause")
+        Define time.d = 0.0
+        CocoaMessage(@time,players()\playerID,"setCurrentTime:")
+        players()\isStarted = #False
+        players()\isPaused = #False
+        ProcedureReturn #True
+      EndIf
+    Next
   EndProcedure
   
-  Procedure getDuration()
-    ProcedureReturn audio\duration
+  Procedure free(id.l = #PB_All)
+    ForEach players()
+      If players()\ID = id Or id = #PB_All
+        With players()
+          If \playerID
+            CocoaMessage(0,\playerID,"stop")
+            CocoaMessage(0,\playerID,"dealloc")
+          EndIf
+          If \tempPath
+            If FileSize(\tempPath) > -1
+              DeleteFile(\tempPath,#PB_FileSystem_Force)
+            EndIf
+          EndIf
+        EndWith
+        DeleteElement(players())
+        If id <> #PB_All
+          Break
+        EndIf
+      EndIf
+    Next
   EndProcedure
   
-  Procedure getPlayerID()
-    ProcedureReturn audio\playerID
+  Procedure.d getCurrentTime(id.l)
+    ForEach players()
+      If players()\ID = id And players()\initialized
+        Protected position.d
+        CocoaMessage(@position,players()\playerID,"currentTime")
+        ProcedureReturn(position)
+      EndIf
+    Next
   EndProcedure
   
-  Procedure isPaused()
-    ProcedureReturn audio\isPaused
+  Procedure.d setCurrentTime(id.l,time.d)
+    ForEach players()
+      If players()\ID = id And players()\initialized
+        CocoaMessage(0,players()\playerID,"setCurrentTime:@",@time)
+        ProcedureReturn getCurrentTime(id)
+      EndIf
+    Next
   EndProcedure
   
-  Procedure isStarted()
-    ProcedureReturn audio\isStarted
+  Procedure getDuration(id.l)
+    ForEach players()
+      If players()\ID = id
+        ProcedureReturn players()\duration
+      EndIf
+    Next
   EndProcedure
   
-  Procedure.s getPath()
-    ProcedureReturn audio\path
+  Procedure getPlayerID(id.l)
+    ForEach players()
+      If players()\ID = id
+        ProcedureReturn players()\playerID
+      EndIf
+    Next
   EndProcedure
   
-  Procedure.s getTempPath()
-    ProcedureReturn audio\tempPath
+  Procedure isPaused(id.l)
+    ForEach players()
+      If players()\ID = id
+        ProcedureReturn players()\isPaused
+      EndIf
+    Next
   EndProcedure
   
-  Procedure setFinishEvent(event.i)
-    audio\finishEvent = event
-    CocoaMessage(0,audio\playerID,"setDelegate:",AVPdelegate)
-    ProcedureReturn #True
+  Procedure isStarted(id.l)
+    ForEach players()
+      If players()\ID = id
+        ProcedureReturn players()\isStarted
+      EndIf
+    Next
   EndProcedure
   
-  ProcedureC AVAudioPlayerDidFinishPlaying()
-    If audio\finishEvent
-      audio\isStarted = #False
-      PostEvent(audio\finishEvent)
-    EndIf
+  Procedure.s getPath(id.l)
+    ForEach players()
+      If players()\ID = id
+        ProcedureReturn players()\path
+      EndIf
+    Next
+  EndProcedure
+  
+  Procedure.s getTempPath(id.l)
+    ForEach players()
+      If players()\ID = id
+        ProcedureReturn players()\tempPath
+      EndIf
+    Next
+  EndProcedure
+  
+  Procedure setFinishEvent(id.l,event.i)
+    ForEach players()
+      If players()\ID = id
+        players()\finishEvent = event
+        CocoaMessage(0,players()\playerID,"setDelegate:",AVPdelegate)
+        ProcedureReturn #True
+      EndIf
+    Next
+  EndProcedure
+  
+  ProcedureC AVAudioPlayerDidFinishPlaying(id.i,v.i,playerID.i)
+    ForEach players()
+      If players()\playerID = playerID And players()\finishEvent
+        players()\isStarted = #False
+        PostEvent(players()\finishEvent)
+      EndIf
+    Next
   EndProcedure
   
 EndModule

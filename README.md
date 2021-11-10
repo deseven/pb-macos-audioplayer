@@ -4,15 +4,15 @@ A simple wrapper built around macOS AVAudioPlayer for [PureBasic](http://purebas
 ## Usage
 ```
 IncludeFile "audioplayer.pbi"
-If audioplayer::load("file.mp3")
-  Debug "Playing file " + audioplayer::getPath()
-  Debug "File duration: " + Str(audioplayer::getDuration()/1000) + " sec"
-  audioplayer::play()
+If audioplayer::load(0,"file.mp3")
+  Debug "Playing file " + audioplayer::getPath(0)
+  Debug "File duration: " + StrD(audioplayer::getDuration(0)) + " sec"
+  audioplayer::play(0)
   Delay(5100)
-  audioplayer::pause()
-  Debug "Played: " +  Str(audioplayer::getCurrentTime()/1000) + " sec"
-  audioplayer::stop()
-  audioplayer::free()
+  audioplayer::pause(0)
+  Debug "Played: " +  StrD(audioplayer::getCurrentTime(0)) + " sec"
+  audioplayer::stop(0)
+  audioplayer::free(0)
 EndIf
 ```
 For advanced usage check out the included `example.pb`.
