@@ -1,9 +1,11 @@
-﻿; pb-macos-audioplayer rev.5
+﻿; pb-macos-audioplayer rev.6
 ; written by deseven
 ;
 ; https://github.com/deseven/pb-macos-audioplayer
 
 DeclareModule audioplayer
+  
+  EnableExplicit
   
   Declare addFFmpegFormat(ext.s)
   Declare setFFmpegPath(path.s)
@@ -24,6 +26,7 @@ DeclareModule audioplayer
   Declare.s getPath(id.l)
   Declare.s getTempPath(id.l)
   Declare setFinishEvent(id.l,event.i)
+  Declare setPlayNext(id.l) ; use this very carefully, there are no validity checks
   
 EndDeclareModule
 
@@ -61,6 +64,8 @@ Module audioplayer
   objc_registerClassPair_(AVPdelegateClass)
   Global AVPdelegate = class_createInstance_(AVPdelegateClass,0)
   
+  Global playNextPlayerID.i
+  
   Global NewList players.audio()
   
   Global FFmpegPath.s
@@ -94,7 +99,6 @@ Module audioplayer
     ext = LCase(ext)
     ForEach formats()
       If formats()\ext = ext
-        foundFormat = #True
         formats()\type = #formatFFmpeg
         ProcedureReturn #True
       EndIf
@@ -371,12 +375,28 @@ Module audioplayer
   EndProcedure
   
   ProcedureC AVAudioPlayerDidFinishPlaying(id.i,v.i,playerID.i)
+    If playNextPlayerID
+      CocoaMessage(0,playNextPlayerID,"play")
+      ForEach players()
+        If players()\playerID = playNextPlayerID
+          players()\isPaused = #False
+          players()\isStarted = #True
+          Break
+        EndIf
+      Next
+      playNextPlayerID = 0
+    EndIf
     ForEach players()
       If players()\playerID = playerID And players()\finishEvent
         players()\isStarted = #False
         PostEvent(players()\finishEvent)
+        Break
       EndIf
     Next
+  EndProcedure
+  
+  Procedure setPlayNext(id.l)
+    playNextPlayerID = getPlayerID(id)
   EndProcedure
   
 EndModule
