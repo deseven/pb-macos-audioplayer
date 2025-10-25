@@ -20,6 +20,8 @@ DeclareModule audioplayer
   Declare.d getCurrentTime(id.l)
   Declare.d setCurrentTime(id.l,time.d)
   Declare getDuration(id.l)
+  Declare.f getVolume(id.l)
+  Declare.f setVolume(id.l,volume.f)
   Declare getPlayerID(id.l)
   Declare isPaused(id.l)
   Declare isStarted(id.l)
@@ -320,6 +322,25 @@ Module audioplayer
     ForEach players()
       If players()\ID = id
         ProcedureReturn players()\duration
+      EndIf
+    Next
+  EndProcedure
+  
+  Procedure.f getVolume(id.l)
+    ForEach players()
+      If players()\ID = id And players()\initialized
+        Protected volume.f
+        CocoaMessage(@volume,players()\playerID,"volume")
+        ProcedureReturn volume
+      EndIf
+    Next
+  EndProcedure
+  
+  Procedure.f setVolume(id.l,volume.f)
+    ForEach players()
+      If players()\ID = id And players()\initialized
+        CocoaMessage(0,players()\playerID,"setVolume:@",@volume)
+        ProcedureReturn getVolume(id)
       EndIf
     Next
   EndProcedure
