@@ -1,4 +1,4 @@
-﻿; pb-macos-audioplayer rev.6
+﻿; pb-macos-audioplayer rev.7
 ; written by deseven
 ;
 ; https://github.com/deseven/pb-macos-audioplayer
